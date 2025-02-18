@@ -1,4 +1,4 @@
 modelsim
 quartus
-src/top.sv
+rtl/top.sv
 tb
