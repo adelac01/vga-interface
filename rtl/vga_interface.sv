@@ -8,7 +8,7 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
                      output logic VGA_HS, output logic VGA_VS, output logic VGA_SYNC_N,
                      output logic VGA_CLK, output logic VGA_BLANK_N);
     
-    parameter RESOLUTION = "640x480";
+    // parameter RESOLUTION = "640x480";
     parameter MONOCHROME = "true";
 
     // Horizotal count thresholds (pixel cycles)
@@ -26,12 +26,24 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
     // Pixel count and line count
     int p_count, l_count;
     logic vga_clk, count_en;
+    logic rden;
+
+    wire [18:0] rdaddress = l_count * 640 + p_count;
+    wire [18:0] wraddress = y_in * 640 + x_in;
+
+    logic [7:0] monochrome_data;
+    assign VGA_R = monochrome_data;
+    assign VGA_G = monochrome_data;
+    assign VGA_B = monochrome_data;
+    // vga_test_rom grayscale_rom(.clock(vga_clk), .address(rdaddress), .rden(rden), .q(monochrome_data));
+    vga_ram ram_buffer(.wrclock(clk), .rdclock(vga_clk), .wraddress(wraddress), .rdaddress(rdaddress), .wren(1'b1), .rden(rden), .data(r_in), .q(monochrome_data));
 
     // Use PLL to turn input clk into 25.175MHz
     vga_pll pll(.refclk(clk), .rst(~rst_n), .outclk_0(vga_clk), .locked(pll_lock));
 
     assign VGA_SYNC_N = 0; // Should always be low
     assign VGA_CLK = vga_clk;
+    assign rden = (p_count <= H_VISIBLE_END && l_count <= V_VISIBLE_END);
 
     always_ff @(posedge vga_clk or negedge rst_n) begin
         if(~rst_n) begin
@@ -45,12 +57,6 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
 
     // VGA Out signals
     always_ff @(posedge vga_clk) begin
-        // VGA_R <= 255;
-        // VGA_G <= 255;
-        // VGA_B <= 255;
-        VGA_R <= p_count % 3 == 0 ? 255 : 0;
-        VGA_G <= p_count % 6 == 1 ? 255 : 0;
-        VGA_B <= p_count % 9 == 2 ? 255 : 0;
         VGA_HS <= ~((p_count >= H_FRONT_PORCH_END + 2) && (p_count < H_SYNC_END + 2));
         VGA_VS <= ~((l_count > V_FRONT_PORCH_END) && (l_count <= V_SYNC_END));
         VGA_BLANK_N <= (p_count <= H_VISIBLE_END && l_count <= V_VISIBLE_END);   
