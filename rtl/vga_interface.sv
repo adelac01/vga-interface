@@ -26,23 +26,31 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
     // Pixel count and line count
     int p_count, l_count;
     logic vga_clk, count_en;
-    logic rden;
+    logic wren, rden;
 
-    wire [18:0] rdaddress = l_count * 640 + p_count;
-    wire [18:0] wraddress = y_in * 640 + x_in;
+    // 640x480 resolution
+    // wire [18:0] rdaddress = l_count * 640 + p_count;
+    // wire [18:0] wraddress = y_in * 640 + x_in;
+
+    // 320x240 resolution
+    wire [16:0] rdaddress = (l_count >> 1) * 320 + (p_count >> 1);
+    wire [16:0] wraddress = y_in * 320 + x_in;
 
     logic [7:0] monochrome_data;
     assign VGA_R = monochrome_data;
     assign VGA_G = monochrome_data;
     assign VGA_B = monochrome_data;
     // vga_test_rom grayscale_rom(.clock(vga_clk), .address(rdaddress), .rden(rden), .q(monochrome_data));
-    vga_ram ram_buffer(.wrclock(clk), .rdclock(vga_clk), .wraddress(wraddress), .rdaddress(rdaddress), .wren(1'b1), .rden(rden), .data(r_in), .q(monochrome_data));
+    vga_ram ram_buffer(.wrclock(clk), .rdclock(vga_clk), .wraddress(wraddress), .rdaddress(rdaddress), .wren(wren), .rden(rden), .data(r_in), .q(monochrome_data));
+    debug_mem debug(.address(wraddress), .clock(clk), .data(r_in), .wren(wren));
 
     // Use PLL to turn input clk into 25.175MHz
     vga_pll pll(.refclk(clk), .rst(~rst_n), .outclk_0(vga_clk), .locked(pll_lock));
 
     assign VGA_SYNC_N = 0; // Should always be low
     assign VGA_CLK = vga_clk;
+    // assign wren = (x_in < 640 && y_in < 480);
+    assign wren = 1'b1;
     assign rden = (p_count <= H_VISIBLE_END && l_count <= V_VISIBLE_END);
 
     always_ff @(posedge vga_clk or negedge rst_n) begin
