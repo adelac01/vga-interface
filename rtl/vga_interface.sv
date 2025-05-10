@@ -1,7 +1,7 @@
 module vga_interface(input logic clk, input logic rst_n, output logic pll_lock, 
 
                      input logic [7:0] r_in, input logic [7:0] g_in, input logic [7:0] b_in, 
-                     input logic [9:0] x_in, input logic [8:0] y_in,
+                     input logic unsigned [8:0] x_in, input logic unsigned [7:0] y_in,
 
                      // VGA Signals
                      output logic [7:0] VGA_R, output logic [7:0] VGA_G, output logic [7:0] VGA_B,
@@ -33,15 +33,33 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
     // wire [18:0] wraddress = y_in * 640 + x_in;
 
     // 320x240 resolution
-    wire [16:0] rdaddress = (l_count >> 1) * 320 + (p_count >> 1);
-    wire [16:0] wraddress = y_in * 320 + x_in;
+    // wire [16:0] rdaddress = (l_count >> 1) * 320 + (p_count >> 1);
+    // wire [16:0] wraddress = y_in * 320 + x_in;
+
+    // 160x120 resolution
+    wire [14:0] rdaddress = (l_count >> 2) * 160 + (p_count >> 2);
+    wire [14:0] wraddress = y_in * 160 + x_in;
 
     logic [7:0] monochrome_data;
     assign VGA_R = monochrome_data;
     assign VGA_G = monochrome_data;
     assign VGA_B = monochrome_data;
     // vga_test_rom grayscale_rom(.clock(vga_clk), .address(rdaddress), .rden(rden), .q(monochrome_data));
-    vga_ram ram_buffer(.wrclock(clk), .rdclock(vga_clk), .wraddress(wraddress), .rdaddress(rdaddress), .wren(wren), .rden(rden), .data(r_in), .q(monochrome_data));
+    // vga_ram ram_buffer(.wrclock(clk), .rdclock(vga_clk), .wraddress(wraddress), .rdaddress(rdaddress), .wren(wren), .rden(rden), .data(r_in), .q(monochrome_data));
+    small_buf ram_buffer(
+        .clock_a(clk), 
+        .clock_b(vga_clk), 
+        .address_a(wraddress), 
+        .address_b(rdaddress), 
+        .data_a(r_in), 
+        // .data_b(),
+        .rden_a(1'b0),
+        .rden_b(rden),
+        .wren_a(wren),
+        .wren_b(1'b0),
+        // .q_a(),
+        .q_b(monochrome_data)
+    );
     debug_mem debug(.address(wraddress), .clock(clk), .data(r_in), .wren(wren));
 
     // Use PLL to turn input clk into 25.175MHz
@@ -49,7 +67,7 @@ module vga_interface(input logic clk, input logic rst_n, output logic pll_lock,
 
     assign VGA_SYNC_N = 0; // Should always be low
     assign VGA_CLK = vga_clk;
-    // assign wren = (x_in < 640 && y_in < 480);
+    // assign wren = (x_in < 320 && y_in < 240);
     assign wren = 1'b1;
     assign rden = (p_count <= H_VISIBLE_END && l_count <= V_VISIBLE_END);
 
